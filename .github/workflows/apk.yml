@@ -1,0 +1,30 @@
+name: Compilar APK
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Compilar
+        run: |
+          base64 -d firma.txt > firma.keystore
+          gradle assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk g75-macro.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ultima
+          name: G75 Macro
+          body: Bajá g75-macro.apk desde el G75 y abrilo para instalar.
+          files: g75-macro.apk
+          make_latest: true
