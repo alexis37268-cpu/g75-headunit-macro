@@ -1,11 +1,10 @@
 package ar.esqr.g75macro;
 
-import android.Manifest;
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -39,11 +38,8 @@ public class MainActivity extends Activity {
         scroll.addView(raiz);
         setContentView(scroll);
 
+        // Con targetSdk 28 Android pide el permiso de notificaciones solo, al crear el canal
         MacroService.arrancar(this);
-        if (Build.VERSION.SDK_INT >= 33
-                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
-        }
     }
 
     @Override
@@ -64,7 +60,8 @@ public class MainActivity extends Activity {
 
         titulo("G75 Macro");
         texto("Desbloquear → abre Open Headunit.\n"
-                + "Desenchufar (3 s) → stop a la música, cierra Open Headunit, va a inicio y apaga la pantalla.");
+                + "Desenchufar (3 s) → stop a la música, cierra Open Headunit, va a inicio, apaga la pantalla "
+                + "y reinicia el WiFi (así el Wi-Fi Direct arranca limpio en el próximo viaje).");
 
         Button interruptor = boton(activo ? "ACTIVADO  (tocá para pausar)" : "PAUSADO  (tocá para activar)");
         interruptor.setBackgroundColor(Color.parseColor(activo ? "#2E7D32" : "#6D4C41"));
@@ -78,11 +75,10 @@ public class MainActivity extends Activity {
         if (!Acciones.headunitInstalado(this)) {
             aviso("⚠ No encuentro Open Headunit instalado (necesita la v3.4.0 o más nueva).");
         }
-        if (Build.VERSION.SDK_INT >= 33) {
-            permiso("Notificaciones (para el botón de pausa)",
-                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED,
-                    () -> requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1));
-        }
+        permiso("Notificaciones (para los botones de pausa y WiFi)",
+                notificacionesActivas(),
+                () -> startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())));
         permiso("Mostrar sobre otras apps (para poder abrir Open Headunit)",
                 Settings.canDrawOverlays(this),
                 () -> startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -107,9 +103,19 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "Cerrando todo…", Toast.LENGTH_SHORT).show();
             Acciones.cerrarTodo(this, h);
         });
+        boton("Probar: reiniciar WiFi").setOnClickListener(v -> {
+            boolean ok = Acciones.reiniciarWifi(this, h);
+            Toast.makeText(this, ok ? "WiFi apagado, se prende en 3 s…"
+                    : "Android no dejó reiniciar el WiFi", Toast.LENGTH_LONG).show();
+        });
 
         texto("\nPara desinstalar la app, primero sacale el permiso de administrador "
                 + "en Ajustes → Seguridad → Apps de administración del dispositivo.");
+    }
+
+    private boolean notificacionesActivas() {
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        return nm != null && nm.areNotificationsEnabled();
     }
 
     private boolean adminActivo() {

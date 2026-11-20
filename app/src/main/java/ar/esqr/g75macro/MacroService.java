@@ -48,6 +48,7 @@ public class MacroService extends Service {
                     break;
                 case Intent.ACTION_POWER_CONNECTED:
                     h.removeCallbacks(cierre); // volvió la corriente: no cerrar nada
+                    if (Prefs.activo(c)) Acciones.prenderWifi(c);
                     break;
             }
         }
@@ -138,10 +139,14 @@ public class MacroService extends Service {
 
         String titulo = activo ? "Auto: ACTIVADO" : "Auto: PAUSADO";
         String texto = activo
-                ? "Desbloquear abre Open Headunit · Desenchufar cierra todo"
+                ? "Desbloquear abre Open Headunit · Desenchufar cierra todo y reinicia el WiFi"
                 : "No hace nada. Tocá Activar para volver a usarlo en el auto";
         Notification.Action accion = new Notification.Action.Builder(
                 null, activo ? "Pausar" : "Activar", alternar).build();
+        PendingIntent wifi = PendingIntent.getBroadcast(c, 3,
+                new Intent(c, ToggleReceiver.class).setAction(ToggleReceiver.REINICIAR_WIFI), fl);
+        Notification.Action accionWifi = new Notification.Action.Builder(
+                null, "Reiniciar WiFi", wifi).build();
 
         return new Notification.Builder(c, CANAL)
                 .setSmallIcon(R.drawable.ic_notif)
@@ -150,6 +155,7 @@ public class MacroService extends Service {
                 .setContentIntent(abrirApp)
                 .setDeleteIntent(reponer)
                 .addAction(accion)
+                .addAction(accionWifi)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setShowWhen(false)

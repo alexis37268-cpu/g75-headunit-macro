@@ -6,6 +6,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
+import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Log;
@@ -93,6 +94,47 @@ final class Acciones {
                 Log.w(TAG, "Falta el permiso de administrador para apagar la pantalla");
             }
         }, 3000);
+
+        // 6) Reiniciar el WiFi: limpia el Wi-Fi Direct trabado para que el próximo viaje arranque de cero
+        h.postDelayed(() -> reiniciarWifi(app, h), 3500);
+    }
+
+    /**
+     * Apaga el WiFi, espera 3 s y lo prende. Es lo mismo que hace Open Headunit con root
+     * ("svc wifi disable/enable") para destrabar el Wi-Fi Direct.
+     * Sin root anda porque esta app declara targetSdk 28: Android 10+ solo le niega
+     * setWifiEnabled() a las apps que apuntan a la API 29 o más nueva.
+     * Devuelve false si Android no lo dejó.
+     */
+    @SuppressWarnings("deprecation")
+    static boolean reiniciarWifi(Context c, Handler h) {
+        WifiManager wifi = (WifiManager) c.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        if (wifi == null) return false;
+        boolean ok;
+        try {
+            ok = wifi.setWifiEnabled(false);
+        } catch (Exception e) {
+            Log.e(TAG, "No pude apagar el WiFi", e);
+            return false;
+        }
+        if (!ok) {
+            Log.w(TAG, "Android no dejó apagar el WiFi");
+            return false;
+        }
+        h.postDelayed(() -> prenderWifi(c), 3000);
+        return true;
+    }
+
+    /** Prende el WiFi si está apagado (al enchufar, por las dudas). */
+    @SuppressWarnings("deprecation")
+    static void prenderWifi(Context c) {
+        WifiManager wifi = (WifiManager) c.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        if (wifi == null || wifi.isWifiEnabled()) return;
+        try {
+            if (!wifi.setWifiEnabled(true)) Log.w(TAG, "Android no dejó prender el WiFi");
+        } catch (Exception e) {
+            Log.e(TAG, "No pude prender el WiFi", e);
+        }
     }
 
     private static void teclaMultimedia(Context c, int codigo) {
